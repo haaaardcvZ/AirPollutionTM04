@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Air Quality Monitor</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+theme: {
+extend: {
+colors: {
+primary: '#3B82F6',
+secondary: '#64748B'
+},
+borderRadius: {
+'none': '0px',
+'sm': '2px',
+DEFAULT: '4px',
+'md': '8px',
+'lg': '12px',
+'xl': '16px',
+'2xl': '20px',
+'3xl': '24px',
+'full': '9999px',
+'button': '4px'
+}
+}
+}
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<style>
+body {
+min-height: 1024px;
+}
+.map-container {
+background-image: url('https://ai-public.mastergo.com/gen_page/map_placeholder_1280x720.png');
+background-position: center;
+background-size: cover;
+position: relative;
+overflow: hidden;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+-webkit-appearance: none;
+margin: 0;
+}
+@keyframes bounce {
+0%, 100% { transform: translateY(0) rotate(-10deg); }
+50% { transform: translateY(-6px) rotate(-10deg); }
+}
+@keyframes pulse {
+0% { transform: scale(1); opacity: 0.4; }
+100% { transform: scale(2); opacity: 0; }
+}
+.location-marker {
+transition: all 0.3s ease-in-out;
+z-index: 1000;
+transform: rotate(-10deg);
+filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+.location-marker i {
+filter: drop-shadow(0 1px 2px rgba(59, 130, 246, 0.3));
+}
+.map-controls button {
+transition: all 0.2s ease;
+}
+.map-controls button:active {
+transform: scale(0.95);
+}
+</style>
+</head>
+<body class="bg-gray-50">
+<nav class="fixed top-0 left-0 right-0 h-16 bg-white shadow-sm z-50">
+<div class="max-w-[1440px] mx-auto px-8 h-full flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="font-['Pacifico'] text-2xl text-primary">logo</span>
+</div>
+<div class="flex items-center gap-8">
+<a href="#" class="text-primary font-medium">Home</a>
+</div>
+</div>
+</nav>
+<main class="pt-16 max-w-[1440px] mx-auto">
+<div class="flex min-h-[960px] relative">
+<div class="w-full h-[calc(100vh-64px)]">
+<div class="absolute top-4 left-4 z-10">
+<form id="searchForm" class="flex items-center gap-2 bg-white rounded-button shadow-sm px-4 py-2">
+<i class="fas fa-search text-gray-400 flex items-center justify-center w-4 h-4"></i>
+<input type="text" id="searchInput" placeholder="Search location..." class="border-none outline-none text-sm w-64">
+</form>
+</div>
+<div class="map-container w-full h-full">
+<div class="map-content absolute inset-0" style="transform-origin: center; transition: transform 0.2s ease">
+<div class="map-controls absolute bottom-4 right-4 flex gap-2 z-10">
+<button onclick="zoomIn()" class="w-10 h-10 bg-white rounded-button shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors">
+<i class="fas fa-plus text-gray-600 flex items-center justify-center w-4 h-4"></i>
+</button>
+<button onclick="zoomOut()" class="w-10 h-10 bg-white rounded-button shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors">
+<i class="fas fa-minus text-gray-600 flex items-center justify-center w-4 h-4"></i>
+</button>
+</div>
+<div id="locationMarker" class="location-marker absolute hidden">
+<i class="fas fa-map-pin text-primary text-2xl filter drop-shadow-lg hover:scale-110 transition-transform" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1);"></i>
+<div class="w-4 h-4 bg-primary rounded-full absolute -bottom-1 left-1/2 transform -translate-x-1/2 opacity-20 animate-ping"></div>
+<div class="w-2 h-2 bg-primary rounded-full absolute bottom-0 left-1/2 transform -translate-x-1/2"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="absolute right-0 top-0 w-[400px] p-8 h-full">
+<div class="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6 h-full">
+<div class="space-y-8">
+<div>
+<h2 class="text-2xl font-semibold mb-2">Current Air Quality</h2>
+<div class="flex items-end gap-2">
+<span class="text-5xl font-bold text-primary">75</span>
+<span class="text-xl text-gray-500 mb-1">AQI</span>
+</div>
+<p class="text-yellow-500 mt-2">Moderate</p>
+</div>
+<div>
+<h3 class="text-lg font-semibold mb-4">Main Pollutants</h3>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span>PM2.5</span>
+<span class="text-primary">35 μg/m³</span>
+</div>
+<div class="h-2 bg-gray-100 rounded-full">
+<div class="h-full w-[45%] bg-green-500 rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span>PM10</span>
+<span class="text-primary">48 μg/m³</span>
+</div>
+<div class="h-2 bg-gray-100 rounded-full">
+<div class="h-full w-[60%] bg-yellow-500 rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span>CO</span>
+<span class="text-primary">1.2 ppm</span>
+</div>
+<div class="h-2 bg-gray-100 rounded-full">
+<div class="h-full w-[30%] bg-green-500 rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span>NO₂</span>
+<span class="text-primary">45 ppb</span>
+</div>
+<div class="h-2 bg-gray-100 rounded-full">
+<div class="h-full w-[55%] bg-yellow-500 rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span>SO₂</span>
+<span class="text-primary">15 ppb</span>
+</div>
+<div class="h-2 bg-gray-100 rounded-full">
+<div class="h-full w-[25%] bg-green-500 rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span>O₃</span>
+<span class="text-primary">82 ppb</span>
+</div>
+<div class="h-2 bg-gray-100 rounded-full">
+<div class="h-full w-[75%] bg-red-500 rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<div>
+<h3 class="text-lg font-semibold mb-4">Health Recommendations</h3>
+<div class="space-y-4">
+<div class="p-4 bg-gray-50 rounded-lg">
+<p class="text-sm text-gray-600">Sensitive individuals should consider limiting prolonged outdoor activities.</p>
+</div>
+<div class="p-4 bg-gray-50 rounded-lg">
+<p class="text-sm text-gray-600">Keep windows closed during peak pollution hours (typically early morning and evening).</p>
+</div>
+</div>
+</div>
+<div class="pt-4 border-t border-gray-100">
+<div class="flex items-center justify-between text-sm text-gray-500">
+<span>Last updated:</span>
+<span>5 minutes ago</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="max-w-[1440px] mx-auto px-8 py-12 bg-gray-50">
+<h2 class="text-2xl font-semibold mb-6">Air Quality Forecast</h2>
+<div class="grid grid-cols-7 gap-4">
+<div class="bg-white rounded-lg shadow-sm p-4 text-center">
+<p class="text-sm text-gray-500 mb-2">Mon, Dec 4</p>
+<div class="w-12 h-12 mx-auto mb-2 flex items-center justify-center">
+<i class="fas fa-sun text-yellow-400 text-3xl"></i>
+</div>
+<div class="text-2xl font-bold text-primary mb-1">65</div>
+<p class="text-sm text-yellow-500">Moderate</p>
+</div>
+<div class="bg-white rounded-lg shadow-sm p-4 text-center">
+<p class="text-sm text-gray-500 mb-2">Tue, Dec 5</p>
+<div class="w-12 h-12 mx-auto mb-2 flex items-center justify-center">
+<i class="fas fa-cloud text-gray-400 text-3xl"></i>
+</div>
+<div class="text-2xl font-bold text-primary mb-1">85</div>
+<p class="text-sm text-yellow-500">Moderate</p>
+</div>
+<div class="bg-white rounded-lg shadow-sm p-4 text-center relative">
+<div class="absolute -top-2 right-2">
+<span class="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full">Alert</span>
+</div>
+<p class="text-sm text-gray-500 mb-2">Wed, Dec 6</p>
+<div class="w-12 h-12 mx-auto mb-2 flex items-center justify-center">
+<i class="fas fa-smog text-gray-600 text-3xl"></i>
+</div>
+<div class="text-2xl font-bold text-primary mb-1">120</div>
+<p class="text-sm text-red-500">Unhealthy</p>
+</div>
+<div class="bg-white rounded-lg shadow-sm p-4 text-center">
+<p class="text-sm text-gray-500 mb-2">Thu, Dec 7</p>
+<div class="w-12 h-12 mx-auto mb-2 flex items-center justify-center">
+<i class="fas fa-cloud-sun text-yellow-400 text-3xl"></i>
+</div>
+<div class="text-2xl font-bold text-primary mb-1">90</div>
+<p class="text-sm text-yellow-500">Moderate</p>
+</div>
+<div class="bg-white rounded-lg shadow-sm p-4 text-center">
+<p class="text-sm text-gray-500 mb-2">Fri, Dec 8</p>
+<div class="w-12 h-12 mx-auto mb-2 flex items-center justify-center">
+<i class="fas fa-sun text-yellow-400 text-3xl"></i>
+</div>
+<div class="text-2xl font-bold text-primary mb-1">75</div>
+<p class="text-sm text-yellow-500">Moderate</p>
+</div>
+<div class="bg-white rounded-lg shadow-sm p-4 text-center">
+<p class="text-sm text-gray-500 mb-2">Sat, Dec 9</p>
+<div class="w-12 h-12 mx-auto mb-2 flex items-center justify-center">
+<i class="fas fa-sun text-yellow-400 text-3xl"></i>
+</div>
+<div class="text-2xl font-bold text-primary mb-1">55</div>
+<p class="text-sm text-green-500">Good</p>
+</div>
+<div class="bg-white rounded-lg shadow-sm p-4 text-center">
+<p class="text-sm text-gray-500 mb-2">Sun, Dec 10</p>
+<div class="w-12 h-12 mx-auto mb-2 flex items-center justify-center">
+<i class="fas fa-cloud-sun text-yellow-400 text-3xl"></i>
+</div>
+<div class="text-2xl font-bold text-primary mb-1">60</div>
+<p class="text-sm text-green-500">Good</p>
+</div>
+</div>
+<div class="mt-8 grid gap-6">
+<div class="bg-white rounded-lg shadow-sm p-6">
+<h3 class="text-lg font-semibold mb-4">3-Day AQI Forecast</h3>
+<div id="threeDayChart" style="width: 100%; height: 300px;"></div>
+</div>
+<div class="bg-white rounded-lg shadow-sm p-6">
+<h3 class="text-lg font-semibold mb-4">3-Day Pollutant Forecast</h3>
+<div id="threeDayPollutantChart" style="width: 100%; height: 400px;"></div>
+</div>
+<div class="bg-white rounded-lg shadow-sm p-6">
+<h3 class="text-lg font-semibold mb-4">7-Day AQI Forecast</h3>
+<div id="sevenDayAQIChart" style="width: 100%; height: 300px;"></div>
+</div>
+<div class="bg-white rounded-lg shadow-sm p-6">
+<h3 class="text-lg font-semibold mb-4">7-Day Pollutant Forecast</h3>
+<div id="sevenDayChart" style="width: 100%; height: 400px;"></div>
+</div>
+<div id="alertNotification" class="fixed top-4 right-4 max-w-md transform transition-transform duration-300 translate-x-full z-50">
+</div>
+<div class="bg-white rounded-lg shadow-sm p-6">
+<h3 class="text-lg font-semibold mb-4">Air Quality Alerts & Recommendations</h3>
+<div class="space-y-4 mb-6">
+<div class="flex items-center gap-4 p-4 bg-yellow-50 rounded-lg" id="moderateAlert">
+<i class="fas fa-exclamation-triangle text-yellow-500 text-xl"></i>
+<div>
+<h4 class="font-medium text-yellow-700">Moderate Air Quality Alert (AQI 51-100)</h4>
+<p class="text-sm text-yellow-600 mt-1">Moderate air quality expected on: Monday, Tuesday, Thursday, Friday</p>
+<div class="text-sm text-yellow-600 mt-2">
+<p class="font-medium">Recommendations:</p>
+<ul class="list-disc pl-5 mt-1">
+<li>Sensitive individuals should limit outdoor activities between 11 AM - 4 PM</li>
+<li>Consider wearing masks during peak pollution hours</li>
+<li>Monitor symptoms if you have respiratory conditions</li>
+</ul>
+</div>
+<button onclick="subscribeToAlerts('moderate')" class="mt-4 px-4 py-2 bg-yellow-500 text-white rounded-button hover:bg-yellow-600 transition-colors whitespace-nowrap">
+Subscribe to Moderate Alerts
+</button>
+</div>
+</div>
+<div class="flex items-center gap-4 p-4 bg-red-50 rounded-lg" id="unhealthyAlert">
+<i class="fas fa-radiation text-red-500 text-xl"></i>
+<div>
+<h4 class="font-medium text-red-700">Unhealthy Air Quality Alert (AQI >100)</h4>
+<p class="text-sm text-red-600 mt-1">Unhealthy air quality expected on: Wednesday (AQI: 120)</p>
+<div class="text-sm text-red-600 mt-2">
+<p class="font-medium">Critical Recommendations:</p>
+<ul class="list-disc pl-5 mt-1">
+<li>Avoid all outdoor activities, especially from 7 AM - 7 PM</li>
+<li>Keep windows closed and use air purifiers</li>
+<li>Mandatory mask-wearing when outdoors</li>
+<li>Children, elderly, and those with respiratory conditions should stay indoors</li>
+</ul>
+</div>
+<button onclick="subscribeToAlerts('unhealthy')" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-button hover:bg-red-600 transition-colors whitespace-nowrap">
+Subscribe to Unhealthy Alerts
+</button>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="p-4 bg-gray-50 rounded-lg">
+<h4 class="font-medium mb-2">Location-based Recommendations</h4>
+<div id="locationRecommendations" class="text-sm text-gray-600">
+<p class="mb-2">Based on your location (Kuala Lumpur):</p>
+<ul class="list-disc pl-5 space-y-2">
+<li>Air quality typically deteriorates during rush hours (7-9 AM, 5-7 PM)</li>
+<li>Consider indoor activities during these peak pollution periods</li>
+<li>Keep windows closed during hazy conditions</li>
+</ul>
+</div>
+</div>
+<div class="p-4 bg-blue-50 rounded-lg">
+<h4 class="font-medium mb-2 text-blue-800">Weather Impact Analysis</h4>
+<div class="text-sm text-blue-700">
+<p class="mb-2">Current weather conditions affecting air quality:</p>
+<ul class="list-disc pl-5 space-y-2">
+<li>Humidity: 75% - May increase pollutant concentration</li>
+<li>Wind Speed: 8 km/h - Moderate dispersion of pollutants</li>
+<li>Temperature: 28°C - Favorable for ozone formation</li>
+</ul>
+</div>
+</div>
+<div class="p-4 bg-purple-50 rounded-lg">
+<h4 class="font-medium mb-2 text-purple-800">Sensitive Groups Advisory</h4>
+<div class="text-sm text-purple-700">
+<p class="mb-2">Special recommendations for:</p>
+<ul class="list-disc pl-5 space-y-2">
+<li>Elderly (65+): Limit outdoor activities to early morning or evening</li>
+<li>Children: Avoid outdoor playtime between 11 AM - 4 PM</li>
+<li>Asthma Patients: Keep rescue inhaler readily available</li>
+<li>Pregnant Women: Minimize exposure during peak pollution hours</li>
+</ul>
+</div>
+</div>
+<div class="p-4 bg-green-50 rounded-lg">
+<h4 class="font-medium mb-2 text-green-800">Indoor Air Quality Tips</h4>
+<div class="text-sm text-green-700">
+<p class="mb-2">Maintain healthy indoor air:</p>
+<ul class="list-disc pl-5 space-y-2">
+<li>Use HEPA air purifiers in bedrooms and living areas</li>
+<li>Regular cleaning of air conditioning filters</li>
+<li>Maintain indoor plants known for air purification</li>
+<li>Monitor indoor humidity levels (ideal: 30-50%)</li>
+<li>Consider using cooking ventilation during meal preparation</li>
+</ul>
+</div>
+</div>
+<div class="p-4 bg-orange-50 rounded-lg">
+<h4 class="font-medium mb-2 text-orange-800">Transportation Recommendations</h4>
+<div class="text-sm text-orange-700">
+<p class="mb-2">Smart travel choices for better air quality:</p>
+<ul class="list-disc pl-5 space-y-2">
+<li>Use public transportation during high pollution days</li>
+<li>Consider carpooling or ride-sharing options</li>
+<li>Choose routes away from high-traffic areas</li>
+<li>Plan trips outside peak pollution hours when possible</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="bg-white rounded-lg shadow-sm p-6 mt-6">
+<h3 class="text-lg font-semibold mb-4">Forecast Analysis</h3>
+<div class="space-y-4">
+<div class="flex gap-4 items-start">
+<i class="fas fa-exclamation-triangle text-red-500 mt-1"></i>
+<div>
+<h4 class="font-medium mb-1">Health Alert for Wednesday</h4>
+<p class="text-gray-600 text-sm">Air quality is expected to deteriorate significantly. Consider limiting outdoor activities and wearing appropriate protection.</p>
+</div>
+</div>
+<div class="flex gap-4 items-start">
+<i class="fas fa-chart-line text-primary mt-1"></i>
+<div>
+<h4 class="font-medium mb-1">Weekly Trend</h4>
+<p class="text-gray-600 text-sm">Air quality is expected to improve towards the end of the week, with best conditions anticipated during the weekend.</p>
+</div>
+</div>
+<div class="flex gap-4 items-start">
+<i class="fas fa-wind text-gray-600 mt-1"></i>
+<div>
+<h4 class="font-medium mb-1">Weather Impact</h4>
+<p class="text-gray-600 text-sm">Expected light winds and increased humidity may lead to temporary accumulation of pollutants mid-week.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+// 3-Day AQI Forecast Chart
+const threeDayChart = echarts.init(document.getElementById('threeDayChart'));
+const threeDayOption = {
+animation: false,
+tooltip: {
+trigger: 'axis',
+axisPointer: {
+type: 'shadow'
+}
+},
+grid: {
+left: '3%',
+right: '4%',
+bottom: '3%',
+containLabel: true
+},
+xAxis: {
+type: 'category',
+data: ['Today', 'Tomorrow', 'Day After'],
+axisTick: {
+alignWithLabel: true
+}
+},
+yAxis: {
+type: 'value',
+name: 'AQI',
+nameLocation: 'middle',
+nameGap: 30
+},
+series: [
+{
+name: 'AQI',
+type: 'bar',
+itemStyle: {
+color: function(params) {
+if (params.value > 100) return '#ef4444';
+if (params.value > 50) return '#facc15';
+return '#22c55e';
+}
+},
+emphasis: {
+itemStyle: {
+shadowBlur: 10,
+shadowOffsetX: 0,
+shadowColor: 'rgba(0, 0, 0, 0.5)'
+}
+},
+barWidth: '60%',
+data: [
+{value: 75, itemStyle: {color: '#facc15'}},
+{value: 85, itemStyle: {color: '#facc15'}},
+{value: 120, itemStyle: {color: '#ef4444'}}
+]
+}
+]
+};
+threeDayChart.setOption(threeDayOption);
+// 7-Day Pollutant Forecast Chart
+const threeDayPollutantChart = echarts.init(document.getElementById('threeDayPollutantChart'));
+const threeDayPollutantOption = {
+animation: false,
+tooltip: {
+trigger: 'axis'
+},
+legend: {
+data: ['PM2.5', 'PM10', 'NO₂', 'O₃', 'SO₂', 'CO'],
+top: '5%'
+},
+grid: {
+left: '3%',
+right: '4%',
+bottom: '3%',
+containLabel: true,
+top: '15%'
+},
+xAxis: {
+type: 'category',
+boundaryGap: false,
+data: ['Today', 'Tomorrow', 'Day After']
+},
+yAxis: {
+type: 'value',
+name: 'Concentration',
+nameLocation: 'middle',
+nameGap: 30
+},
+series: [
+{
+name: 'PM2.5',
+type: 'line',
+data: [35, 32, 45]
+},
+{
+name: 'PM10',
+type: 'line',
+data: [48, 45, 55]
+},
+{
+name: 'NO₂',
+type: 'line',
+data: [45, 42, 52]
+},
+{
+name: 'O₃',
+type: 'line',
+data: [82, 78, 90]
+},
+{
+name: 'SO₂',
+type: 'line',
+data: [15, 14, 18]
+},
+{
+name: 'CO',
+type: 'line',
+data: [1.2, 1.1, 1.4]
+}
+]
+};
+const sevenDayAQIChart = echarts.init(document.getElementById('sevenDayAQIChart'));
+const sevenDayAQIOption = {
+animation: false,
+tooltip: {
+trigger: 'axis',
+formatter: function(params) {
+const value = params[0].value;
+let healthAdvice = '';
+if (value > 100) {
+healthAdvice = '<br/>Health Advice: Avoid outdoor activities. Wear masks.';
+} else if (value > 50) {
+healthAdvice = '<br/>Health Advice: Sensitive individuals should limit outdoor exposure.';
+} else {
+healthAdvice = '<br/>Health Advice: Air quality is good for outdoor activities.';
+}
+return params[0].name + ': ' + value + healthAdvice;
+}
+},
+tooltip: {
+trigger: 'axis',
+axisPointer: {
+type: 'shadow'
+}
+},
+grid: {
+left: '3%',
+right: '4%',
+bottom: '3%',
+containLabel: true
+},
+xAxis: {
+type: 'category',
+data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+axisTick: {
+alignWithLabel: true
+}
+},
+yAxis: {
+type: 'value',
+name: 'AQI',
+nameLocation: 'middle',
+nameGap: 30
+},
+series: [
+{
+name: 'AQI',
+type: 'bar',
+itemStyle: {
+color: function(params) {
+if (params.value > 100) return '#ef4444';
+if (params.value > 50) return '#facc15';
+return '#22c55e';
+}
+},
+emphasis: {
+itemStyle: {
+shadowBlur: 10,
+shadowOffsetX: 0,
+shadowColor: 'rgba(0, 0, 0, 0.5)'
+}
+},
+barWidth: '60%',
+data: [
+{value: 75, itemStyle: {color: '#facc15'}},
+{value: 85, itemStyle: {color: '#facc15'}},
+{value: 120, itemStyle: {color: '#ef4444'}},
+{value: 90, itemStyle: {color: '#facc15'}},
+{value: 75, itemStyle: {color: '#facc15'}},
+{value: 55, itemStyle: {color: '#22c55e'}},
+{value: 60, itemStyle: {color: '#22c55e'}}
+]
+}
+]
+};
+const sevenDayChart = echarts.init(document.getElementById('sevenDayChart'));
+const sevenDayOption = {
+animation: false,
+tooltip: {
+trigger: 'axis'
+},
+legend: {
+data: ['PM2.5', 'PM10', 'NO₂', 'O₃', 'SO₂', 'CO'],
+top: '5%'
+},
+grid: {
+left: '3%',
+right: '4%',
+bottom: '3%',
+containLabel: true,
+top: '15%'
+},
+xAxis: {
+type: 'category',
+boundaryGap: false,
+data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+},
+yAxis: {
+type: 'value',
+name: 'Concentration',
+nameLocation: 'middle',
+nameGap: 30
+},
+series: [
+{
+name: 'PM2.5',
+type: 'line',
+data: [35, 32, 45, 38, 30, 28, 25]
+},
+{
+name: 'PM10',
+type: 'line',
+data: [48, 45, 55, 50, 42, 40, 38]
+},
+{
+name: 'NO₂',
+type: 'line',
+data: [45, 42, 52, 48, 40, 38, 35]
+},
+{
+name: 'O₃',
+type: 'line',
+data: [82, 78, 90, 85, 75, 70, 68]
+},
+{
+name: 'SO₂',
+type: 'line',
+data: [15, 14, 18, 16, 13, 12, 11]
+},
+{
+name: 'CO',
+type: 'line',
+data: [1.2, 1.1, 1.4, 1.3, 1.0, 0.9, 0.8]
+}
+]
+};
+sevenDayChart.setOption(sevenDayOption);
+// Resize charts when window is resized
+window.addEventListener('resize', function() {
+threeDayChart.resize();
+threeDayPollutantChart.resize();
+sevenDayAQIChart.resize();
+sevenDayChart.resize();
+});
+threeDayPollutantChart.setOption(threeDayPollutantOption);
+sevenDayAQIChart.setOption(sevenDayAQIOption);
+sevenDayAQIChart.on('click', 'series', handleChartClick);
+</script>
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" id="locationModal">
+<div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+<div class="text-center mb-6">
+<i class="fas fa-location-dot text-primary text-4xl mb-4"></i>
+<h3 class="text-xl font-semibold mb-2">Enable Location Services</h3>
+<p class="text-gray-600">We need your location to show you accurate air quality data for your area.</p>
+</div>
+<div class="flex gap-4">
+<button onclick="denyLocation()" class="flex-1 bg-gray-100 text-gray-600 py-2 px-4 rounded-button whitespace-nowrap">Deny</button>
+<button onclick="allowLocation()" class="flex-1 bg-primary text-white py-2 px-4 rounded-button whitespace-nowrap">Allow</button>
+</div>
+</div>
+</div>
+<script>
+function showNotification(type, message) {
+const notification = document.getElementById('alertNotification');
+let bgColor = type === 'moderate' ? 'bg-yellow-100' : 'bg-red-100';
+let textColor = type === 'moderate' ? 'text-yellow-800' : 'text-red-800';
+let iconClass = type === 'moderate' ? 'fa-exclamation-triangle' : 'fa-radiation';
+notification.innerHTML = `
+<div class="p-4 ${bgColor} rounded-lg shadow-lg flex items-start gap-3">
+<i class="fas ${iconClass} ${textColor} text-xl mt-1"></i>
+<div>
+<h4 class="font-medium ${textColor} mb-1">Air Quality Alert</h4>
+<p class="text-sm ${textColor}">${message}</p>
+</div>
+<button onclick="this.parentElement.remove()" class="ml-auto">
+<i class="fas fa-times ${textColor}"></i>
+</button>
+</div>
+`;
+notification.style.transform = 'translateX(0)';
+setTimeout(() => {
+notification.style.transform = 'translateX(100%)';
+}, 5000);
+}
+function subscribeToAlerts(level) {
+const messages = {
+moderate: "You've subscribed to moderate air quality alerts. You'll receive notifications when AQI is between 51-100.",
+unhealthy: "You've subscribed to unhealthy air quality alerts. You'll receive notifications when AQI exceeds 100."
+};
+showNotification(level, messages[level]);
+}
+function handleChartClick(params) {
+if (params.value > 100) {
+showNotification('unhealthy', `Unhealthy air quality detected (AQI: ${params.value}). Stay indoors and wear masks if going outside is necessary.`);
+} else if (params.value > 50) {
+showNotification('moderate', `Moderate air quality alert (AQI: ${params.value}). Sensitive individuals should limit outdoor activities.`);
+}
+}
+let currentScale = 1;
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 3;
+const SCALE_STEP = 0.2;
+let currentX = 0;
+let currentY = 0;
+function allowLocation() {
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(
+(position) => {
+document.getElementById('locationModal').style.display = 'none';
+updateAirQuality(position.coords.latitude, position.coords.longitude);
+showLocationMarker(position.coords.latitude, position.coords.longitude);
+centerMapOnLocation(position.coords.latitude, position.coords.longitude);
+},
+(error) => {
+console.error("Error getting location:", error);
+setDefaultLocation();
+}
+);
+} else {
+console.error("Geolocation is not supported by this browser.");
+setDefaultLocation();
+}
+}
+function denyLocation() {
+document.getElementById('locationModal').style.display = 'none';
+setDefaultLocation();
+}
+function setDefaultLocation() {
+const klLat = 3.1390;
+const klLon = 101.6869;
+updateAirQuality(klLat, klLon);
+showLocationMarker(klLat, klLon);
+centerMapOnLocation(klLat, klLon);
+}
+function showLocationMarker(lat, lon) {
+const marker = document.getElementById('locationMarker');
+const mapContent = document.querySelector('.map-content');
+const containerRect = mapContent.getBoundingClientRect();
+const x = (lon + 180) * (containerRect.width / 360) - 12;
+const y = (90 - lat) * (containerRect.height / 180) - 24;
+marker.style.left = `${x}px`;
+marker.style.top = `${y}px`;
+marker.classList.remove('hidden');
+marker.style.animation = 'bounce 0.6s ease-in-out';
+marker.style.transformOrigin = 'bottom center';
+}
+function centerMapOnLocation(lat, lon) {
+const mapContent = document.querySelector('.map-content');
+const mapContainer = document.querySelector('.map-container');
+const containerRect = mapContainer.getBoundingClientRect();
+const x = (lon + 180) * (containerRect.width / 360);
+const y = (90 - lat) * (containerRect.height / 180);
+currentX = containerRect.width / 2 - x * currentScale;
+currentY = containerRect.height / 2 - y * currentScale;
+mapContent.style.transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale})`;
+}
+function zoomIn() {
+if (currentScale < MAX_SCALE) {
+currentScale += SCALE_STEP;
+updateMapScale();
+}
+}
+function zoomOut() {
+if (currentScale > MIN_SCALE) {
+currentScale -= SCALE_STEP;
+updateMapScale();
+}
+}
+function updateMapScale() {
+const mapContent = document.querySelector('.map-content');
+mapContent.style.transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale})`;
+}
+function updateAirQuality(lat, lon, locationName = null) {
+const displayName = locationName || (lat === 3.1390 ? "Kuala Lumpur" : "Your Location");
+document.querySelector('.text-2xl.font-semibold.mb-2').textContent = `Current Air Quality - ${displayName}`;
+// 模拟不同位置的空气质量数据
+const aqi = Math.floor(Math.random() * (150 - 30 + 1)) + 30;
+const pollutantData = [
+{ name: 'PM2.5', value: Math.floor(Math.random() * (50 - 10 + 1)) + 10, unit: 'μg/m³', max: 50 },
+{ name: 'PM10', value: Math.floor(Math.random() * (80 - 20 + 1)) + 20, unit: 'μg/m³', max: 80 },
+{ name: 'CO', value: (Math.random() * (2 - 0.1) + 0.1).toFixed(1), unit: 'ppm', max: 2 },
+{ name: 'NO₂', value: Math.floor(Math.random() * (100 - 10 + 1)) + 10, unit: 'ppb', max: 100 },
+{ name: 'SO₂', value: Math.floor(Math.random() * (50 - 5 + 1)) + 5, unit: 'ppb', max: 50 },
+{ name: 'O₃', value: Math.floor(Math.random() * (100 - 40 + 1)) + 40, unit: 'ppb', max: 100 }
+];
+// 更新AQI值
+document.querySelector('.text-5xl.font-bold.text-primary').textContent = aqi;
+// 更新污染物数据和进度条
+const pollutants = document.querySelectorAll('.space-y-4 .flex.justify-between');
+const progressBars = document.querySelectorAll('.h-2.bg-gray-100 div');
+pollutantData.forEach((data, index) => {
+const percent = (data.value / data.max) * 100;
+pollutants[index].querySelector('.text-primary').textContent = `${data.value} ${data.unit}`;
+progressBars[index].style.width = `${percent}%`;
+// 根据百分比设置颜色
+let color = 'bg-green-500';
+if (percent > 75) color = 'bg-red-500';
+else if (percent > 50) color = 'bg-yellow-500';
+else if (percent > 25) color = 'bg-green-500';
+progressBars[index].className = `h-full w-[${percent}%] ${color} rounded-full`;
+});
+// 更新时间显示为当前时间
+const now = new Date();
+const timeString = now.toLocaleTimeString('en-US', {
+hour: '2-digit',
+minute: '2-digit'
+});
+document.querySelector('.text-gray-500 > span:last-child').textContent = `Last updated at ${timeString}`;
+// 更新空气质量状态
+const aqiStatus = document.querySelector('.text-yellow-500');
+if (aqi <= 50) {
+aqiStatus.textContent = 'Good';
+aqiStatus.className = 'text-green-500 mt-2';
+} else if (aqi <= 100) {
+aqiStatus.textContent = 'Moderate';
+aqiStatus.className = 'text-yellow-500 mt-2';
+} else {
+aqiStatus.textContent = 'Unhealthy';
+aqiStatus.className = 'text-red-500 mt-2';
+}
+// 更新最后更新时间
+document.querySelector('.text-gray-500 > span:last-child').textContent = 'Just now';
+}
+// Enable drag functionality
+let isDragging = false;
+let startX, startY;
+let initialTranslateX, initialTranslateY;
+document.querySelector('.map-container').addEventListener('mousedown', (e) => {
+const mapContent = document.querySelector('.map-content');
+const transform = window.getComputedStyle(mapContent).transform;
+const matrix = new DOMMatrix(transform);
+isDragging = true;
+startX = e.clientX;
+startY = e.clientY;
+initialTranslateX = matrix.m41;
+initialTranslateY = matrix.m42;
+});
+document.addEventListener('mousemove', (e) => {
+if (!isDragging) return;
+const deltaX = (e.clientX - startX);
+const deltaY = (e.clientY - startY);
+currentX = initialTranslateX + deltaX;
+currentY = initialTranslateY + deltaY;
+const mapContent = document.querySelector('.map-content');
+mapContent.style.transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale})`;
+});
+document.addEventListener('mouseup', () => {
+isDragging = false;
+});
+// 搜索功能实现
+document.getElementById('searchForm').addEventListener('submit', function(e) {
+e.preventDefault();
+const searchQuery = document.getElementById('searchInput').value.trim();
+if (!searchQuery) return;
+// 模拟地理编码服务，实际应用中应使用真实的地理编码API（如Google Maps Geocoding API）
+const mockGeocode = (query) => {
+const locations = {
+'new york': { lat: 40.7128, lon: -74.0060, name: 'New York' },
+'london': { lat: 51.5074, lon: -0.1278, name: 'London' },
+'tokyo': { lat: 35.6762, lon: 139.6503, name: 'Tokyo' },
+'paris': { lat: 48.8566, lon: 2.3522, name: 'Paris' },
+'sydney': { lat: -33.8688, lon: 151.2093, name: 'Sydney' }
+};
+const searchLower = query.toLowerCase();
+for (let key in locations) {
+if (key.includes(searchLower)) {
+return locations[key];
+}
+}
+return { lat: 3.1390, lon: 101.6869, name: 'Kuala Lumpur' }; // 默认返回吉隆坡
+};
+const location = mockGeocode(searchQuery);
+showLocationMarker(location.lat, location.lon);
+centerMapOnLocation(location.lat, location.lon);
+updateAirQuality(location.lat, location.lon, location.name);
+});
+</script>
+</body>
+</html>
